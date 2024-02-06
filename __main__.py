@@ -13,8 +13,25 @@ def float2hex(num: float) -> str:
     return "".join(f"{c:0>2x}" for c in struct.pack("!f", num))
 
 def hex2float(hex_string: str) -> float:
-    """ Take 4 bytes in hex notation representing a float, pack them into the float and return it. """
-    hex_string = hex_string.lstrip("0x").replace("_", "")
+    """
+    Take 4 bytes in hex notation representing a float, pack them into the float and return it.
+
+    Possible exceptions:
+    - ValueError, if the string on input contains non-hex characters or the length is not valid
+    """
+    # remove spaces/underscores and strip ws (possible newline)
+    hex_string = hex_string.replace("_", "").replace(" ", "").strip()
+
+    # strip 0x at the beginning (lstrip would remove zeros at the beginning)
+    if len(hex_string) >= 2 and hex_string[0] == "0" and hex_string[1] in ["x", "X"]:
+        hex_string = hex_string[2:]
+
+    if len(hex_string) != 8:
+        raise ValueError(f"Exactly 8 hex-digits (4 bytes) expected, got {len(hex_string)}")
+
+    if (invalid_chars := set(hex_string) - set("1234567890abcdefABCDEF")) != set():
+        raise ValueError(f"Unexpected (non-hex) character on input {invalid_chars}")
+
     return struct.unpack('!f', bytes.fromhex(hex_string))[0]
 
 
