@@ -49,30 +49,41 @@ def encode(num):
 def decode(hex_string):
     click.echo(hex2float(hex_string))
 
-@cli.command()
-@click.argument('index', type=int)
-def read(index):
+def _read(index: int):
     if os.geteuid() != 0:
         click.echo("You need to have root privileges to run this script.\nPlease try again, this time using 'sudo'. Exiting.")
         sys.exit(1)
 
     addr: str = hex(BASE_ADDR + 4 * index)
-    click.echo(f"[DEBUG] Running `sudo devmem2m {addr}`")
+    #  click.echo(f"[DEBUG] Running `sudo devmem2m {addr}`")
 
     try:
         proc = subprocess.run(["sudo", "devmem2m", addr], capture_output=True, timeout=5)
+        # proc = subprocess.run(["echo", addr], capture_output=True, timeout=5)
     except subprocess.TimeoutExpired as exc:
-        click.echo(f"Timeout of the reading process. Aborting.")
-        click.echo(f"Provided stderr:\n{exc.stderr.decode('utf-8')}")
+        click.echo(exc)
+        if exc.stderr is not None and exc.stderr != b'':
+            click.echo(f"Provided stderr:\n{exc.stderr.decode('utf-8')}")
         sys.exit(2)
 
     if proc.returncode != 0:
         click.echo(f"Problem occured; return code {proc.returncode}")
-        click.echo(f"Provided stderr:\n{proc.stderr.decode('utf-8')}")
+        if proc.stderr is not None and proc.stderr != b'':
+            click.echo(f"Provided stderr:\n{proc.stderr.decode('utf-8')}")
         sys.exit(3)
 
-    mem_content = proc.stdout.decode("utf-8")
+    mem_content = proc.stdout.decode("utf-8").strip().upper()
+    if mem_content == "DEADFEED":
+        click.echo("Indexing out of range! DEAD FEED")
+        return  # not exit because of read_range
+
+    # let the ValueErrors pass to user
     click.echo(hex2float(mem_content))
+
+@cli.command()
+@click.argument('index', type=int)
+def read(index):
+    _read(index)
 
 @cli.command()
 @click.argument('start', type=int)
@@ -80,7 +91,7 @@ def read(index):
 def read_range(start, end):
     for i in range(start, end):
         click.echo(f"[{i:<2d}] ", nl=False)  # index info
-        read(i)  # this automatically dumps the memory value
+        _read(i)  # this automatically dumps the memory value
 
 
 if __name__ == "__main__":
