@@ -11,6 +11,14 @@ from math import nan
 BASE_R_ADDR = int("0xa000_0000", base=16)
 BASE_W_ADDR = int("0xa100_0000", base=16)
 
+@click.group()
+def cli():
+    pass
+
+# ==============================================================================================
+# ======================================= ENCODE/DECODE ========================================
+# ==============================================================================================
+
 def float2hex(num: float) -> str:
     """ Unpack a Python float into bytes and return them in hex notation."""
     return "".join(f"{c:0>2x}" for c in struct.pack("!f", num))
@@ -37,11 +45,6 @@ def hex2float(hex_string: str) -> float:
 
     return struct.unpack('!f', bytes.fromhex(hex_string))[0]
 
-
-@click.group()
-def cli():
-    pass
-
 @cli.command()
 @click.argument('num', type=float)
 def encode(num):
@@ -53,6 +56,10 @@ def encode(num):
 def decode(hex_string):
     """Perform the conversion from hex (32-bit) to a floating point."""
     click.echo(hex2float(hex_string))
+
+# ==============================================================================================
+# ========================================== READ ==============================================
+# ==============================================================================================
 
 def _read_raw(index: int, write_segment: bool) -> str:
     if os.geteuid() != 0:
@@ -123,6 +130,9 @@ def read_raw_range(start, end, write_segment):
     for i in range(start, end):
         click.echo(f"[{i:<2d}] {_read_raw(i, write_segment)}")
 
+# ==============================================================================================
+# ========================================== WRITE =============================================
+# ==============================================================================================
 
 def _write_raw(index: int, hex_value: str) -> str:
     if os.geteuid() != 0:
