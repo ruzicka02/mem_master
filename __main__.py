@@ -7,6 +7,8 @@ import os
 import sys
 
 from math import nan
+from pathlib import Path
+from tqdm import tqdm
 
 BASE_R_ADDR = int("0xa000_0000", base=16)
 BASE_W_ADDR = int("0xa100_0000", base=16)
@@ -168,6 +170,22 @@ def _write(index: int, num: float) -> float:
     feedback = hex2float(mem_content)
     return feedback
 
+def _write_file(path: Path, count: int, start_index: int, dry_run: bool) -> list[float]:
+    feedback = []
+    with path.open() as f:
+        for i in tqdm(range(count)):
+            ln = f.readline()
+
+            bin_value: str = "0b" + ln.strip()
+            hex_value: str = f"{int(bin_value, base=2):#010x}"  # (zero padding needed, otherwise hex() could be used)
+
+            # dry run... value read from file converted to hex
+            mem_content = _write_raw(start_index + i, hex_value) if not dry_run else hex_value
+            feedback.append(hex2float(mem_content))
+
+    # what was actually written to memory (double -> float -> double)
+    return feedback
+
 
 @cli.command()
 @click.argument('index', type=int)
@@ -188,6 +206,25 @@ def write_raw(index, hex_string):
     """Write the given value (4B) to the memory on given index."""
     mem_feedback = _write_raw(index, hex_string)
     click.echo(f"0X{mem_feedback} written")
+
+@cli.command()
+@click.argument('path')
+@click.option('-v', '--verbose', is_flag=True, default=False, help="Print the feedback (long)")
+@click.option('-d', '--dry-run', is_flag=True, default=False, help="Don't perform any real memory operations")
+def write_img(path: str, verbose: bool, dry_run: bool):
+    """Write the given value (4B) to the memory on given index."""
+
+    # input protection would be in place
+    true_path: Path = Path(path)
+
+    #                                     160 for testing
+    mem_feedback = _write_file(true_path, 784, 0, dry_run)
+
+    if verbose:
+        i = 0
+        for f in mem_feedback:
+            print(f"[{i:<3d}] {f}")
+            i += 1
 
 if __name__ == "__main__":
     cli()
